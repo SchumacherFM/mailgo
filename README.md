@@ -2,6 +2,10 @@
 
 ## Another fork with applied patches/etc ...
 
+ - Requires Go 1.15
+ - Add context
+ - Wrapped errors for more information
+
 This is an actively maintained fork of [Gomail][1] and includes fixes and
 improvements for a number of outstanding issues. The current progress is
 as follows:
