@@ -1,4 +1,4 @@
-package mailgo_test
+package mail_test
 
 import (
 	"fmt"

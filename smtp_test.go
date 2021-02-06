@@ -1,4 +1,4 @@
-package mailgo
+package mail
 
 import (
 	"bytes"
