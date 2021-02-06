@@ -1,4 +1,4 @@
-package mail_test
+package mailgo_test
 
 import (
 	"fmt"
@@ -7,7 +7,7 @@ import (
 	"log"
 	"time"
 
-	"gopkg.in/mail.v2"
+	mail "github.com/corestoreio/mailgo"
 )
 
 func Example() {

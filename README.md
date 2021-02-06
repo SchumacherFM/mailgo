@@ -1,5 +1,6 @@
 # Gomail
-[![Build Status](https://travis-ci.org/go-mail/mail.svg?branch=master)](https://travis-ci.org/go-mail/mail) [![Code Coverage](http://gocover.io/_badge/github.com/go-mail/mail)](http://gocover.io/github.com/go-mail/mail) [![Documentation](https://godoc.org/github.com/go-mail/mail?status.svg)](https://godoc.org/github.com/go-mail/mail)
+
+## Another fork with applied patches/etc ...
 
 This is an actively maintained fork of [Gomail][1] and includes fixes and
 improvements for a number of outstanding issues. The current progress is
@@ -15,7 +16,7 @@ as follows:
 See [Transitioning Existing Codebases][3] for more information on switching.
 
 [1]: https://github.com/go-gomail/gomail
-[2]: https://godoc.org/gopkg.in/mail.v2#NetDialTimeout
+[2]: https://godoc.org/.....#NetDialTimeout
 [3]: #transitioning-existing-codebases
 
 ## Introduction
@@ -55,15 +56,6 @@ import path:
 github.com/go-mail/mail
 ```
 
-If you *aren't* using vendoring, `go get` the [Gopkg.in](http://gopkg.in)
-import path:
-
-```
-gopkg.in/mail.v2
-```
-
-[dep]: https://github.com/golang/dep#readme
-
 ## Examples
 
 See the [examples in the documentation](https://godoc.org/github.com/go-mail/mail#example-package).
@@ -84,7 +76,7 @@ package main
 import (
 	"crypto/tls"
 
-	"gopkg.in/mail.v2"
+	"....."
 )
 
 func main() {
@@ -103,7 +95,7 @@ If you're already using the original Gomail, switching is as easy as updating
 the import line to:
 
 ```
-import gomail "gopkg.in/mail.v2"
+import gomail "..."
 ```
 
 ## Contribute
