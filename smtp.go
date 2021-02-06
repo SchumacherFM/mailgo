@@ -90,6 +90,10 @@ func (d *Dialer) Dial() (SendCloser, error) {
 		return nil, err
 	}
 
+	if d.Timeout > 0 {
+		conn.SetDeadline(time.Now().Add(d.Timeout))
+	}
+
 	if d.SSL {
 		conn = tlsClient(conn, d.tlsConfig())
 	}
@@ -97,10 +101,6 @@ func (d *Dialer) Dial() (SendCloser, error) {
 	c, err := smtpNewClient(conn, d.Host)
 	if err != nil {
 		return nil, err
-	}
-
-	if d.Timeout > 0 {
-		conn.SetDeadline(time.Now().Add(d.Timeout))
 	}
 
 	if d.LocalName != "" {
