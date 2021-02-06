@@ -2,13 +2,13 @@ package mail
 
 import (
 	"bytes"
+	"context"
 	"crypto/tls"
 	"io"
 	"net"
 	"net/smtp"
 	"reflect"
 	"testing"
-	"time"
 )
 
 const (
@@ -414,7 +414,7 @@ func testSendMailTimeout(t *testing.T, d *Dialer, want []string) {
 func doTestSendMail(t *testing.T, d *Dialer, testClient *mockClient, want []string) error {
 	testClient.want = want
 
-	NetDialTimeout = func(network, address string, d time.Duration) (net.Conn, error) {
+	d.DialProxy = func(ctx context.Context, network, address string) (net.Conn, error) {
 		if network != "tcp" {
 			t.Errorf("Invalid network, got %q, want tcp", network)
 		}
