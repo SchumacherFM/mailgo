@@ -1,6 +1,7 @@
 package mail
 
 import (
+	"context"
 	"crypto/tls"
 	"fmt"
 	"io"
@@ -12,6 +13,9 @@ import (
 
 // A Dialer is a dialer to an SMTP server.
 type Dialer struct {
+	// ProxyDial specifies the optional dial function for
+	// establishing the transport connection.
+	DialProxy func(ctx context.Context, network, address string) (net.Conn, error)
 	// Host represents the host of the SMTP server.
 	Host string
 	// Port represents the port of the SMTP server.
@@ -47,14 +51,13 @@ type Dialer struct {
 	// Whether we should retry mailing if the connection returned an error,
 	// defaults to true.
 	RetryFailure bool
-	// Overrides NetDialTimeout for this dialer
-	NetDialTimeout func(network, address string, timeout time.Duration) (net.Conn, error)
 }
 
 // NewDialer returns a new SMTP Dialer. The given parameters are used to connect
 // to the SMTP server.
 func NewDialer(host string, port int, username, password string) *Dialer {
 	return &Dialer{
+		DialProxy:    (&net.Dialer{}).DialContext,
 		Host:         host,
 		Port:         port,
 		Username:     username,
@@ -73,19 +76,11 @@ func NewPlainDialer(host string, port int, username, password string) *Dialer {
 	return NewDialer(host, port, username, password)
 }
 
-// NetDialTimeout specifies the DialTimeout function to establish a connection
-// to the SMTP server. This can be used to override dialing in the case that a
-// proxy or other special behavior is needed.
-var NetDialTimeout = net.DialTimeout
-
 // Dial dials and authenticates to an SMTP server. The returned SendCloser
 // should be closed when done using it.
 func (d *Dialer) Dial() (SendCloser, error) {
-	ndt := NetDialTimeout
-	if d.NetDialTimeout != nil {
-		ndt = d.NetDialTimeout
-	}
-	conn, err := ndt("tcp", addr(d.Host, d.Port), d.Timeout)
+	ctx, _ := context.WithTimeout(context.Background(), d.Timeout)
+	conn, err := d.DialProxy(ctx, "tcp", addr(d.Host, d.Port))
 	if err != nil {
 		return nil, err
 	}
@@ -113,7 +108,8 @@ func (d *Dialer) Dial() (SendCloser, error) {
 		ok, _ := c.Extension("STARTTLS")
 		if !ok && d.StartTLSPolicy == MandatoryStartTLS {
 			err := StartTLSUnsupportedError{
-				Policy: d.StartTLSPolicy}
+				Policy: d.StartTLSPolicy,
+			}
 			return nil, err
 		}
 
