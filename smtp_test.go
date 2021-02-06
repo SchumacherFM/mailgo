@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"crypto/tls"
+	"errors"
 	"io"
 	"net"
 	"net/smtp"
@@ -266,7 +267,7 @@ func TestDialerTimeoutNoRetry(t *testing.T) {
 		"Quit",
 	})
 
-	if err.Error() != "gomail: could not send email 1: EOF" {
+	if !errors.Is(err, io.EOF) {
 		t.Error("expected to have got EOF, but got:", err)
 	}
 }
@@ -440,7 +441,7 @@ func doTestSendMail(t *testing.T, d *Dialer, testClient *mockClient, want []stri
 		return testClient, nil
 	}
 
-	return d.DialAndSend(getTestMessage())
+	return d.DialAndSend(context.Background(), getTestMessage())
 }
 
 func assertConfig(t *testing.T, got, want *tls.Config) {

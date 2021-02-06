@@ -47,7 +47,9 @@ type Dialer struct {
 	LocalName string
 	// Timeout to use for read/write operations. Defaults to 10 seconds, can
 	// be set to 0 to disable timeouts.
-	Timeout time.Duration
+	Timeout      time.Duration
+	ReadTimeout  time.Duration
+	WriteTimeout time.Duration
 	// Whether we should retry mailing if the connection returned an error,
 	// defaults to true.
 	RetryFailure bool
@@ -78,15 +80,21 @@ func NewPlainDialer(host string, port int, username, password string) *Dialer {
 
 // Dial dials and authenticates to an SMTP server. The returned SendCloser
 // should be closed when done using it.
-func (d *Dialer) Dial() (SendCloser, error) {
-	ctx, _ := context.WithTimeout(context.Background(), d.Timeout)
+func (d *Dialer) Dial(ctx context.Context) (SendCloser, error) {
 	conn, err := d.DialProxy(ctx, "tcp", addr(d.Host, d.Port))
 	if err != nil {
 		return nil, err
 	}
 
+	tn := time.Now()
 	if d.Timeout > 0 {
-		conn.SetDeadline(time.Now().Add(d.Timeout))
+		conn.SetDeadline(tn.Add(d.Timeout))
+	}
+	if d.ReadTimeout > 0 {
+		conn.SetReadDeadline(tn.Add(d.Timeout))
+	}
+	if d.WriteTimeout > 0 {
+		conn.SetWriteDeadline(tn.Add(d.Timeout))
 	}
 
 	if d.SSL {
@@ -116,7 +124,7 @@ func (d *Dialer) Dial() (SendCloser, error) {
 		if ok {
 			if err := c.StartTLS(d.tlsConfig()); err != nil {
 				c.Close()
-				return nil, err
+				return nil, fmt.Errorf("StartTLS failed: %w", err)
 			}
 		}
 	}
@@ -141,7 +149,7 @@ func (d *Dialer) Dial() (SendCloser, error) {
 	if d.Auth != nil {
 		if err = c.Auth(d.Auth); err != nil {
 			c.Close()
-			return nil, err
+			return nil, fmt.Errorf("gomail Auth failed: %w", err)
 		}
 	}
 
@@ -175,8 +183,8 @@ const (
 	NoStartTLS = -1
 )
 
-func (policy *StartTLSPolicy) String() string {
-	switch *policy {
+func (policy StartTLSPolicy) String() string {
+	switch policy {
 	case OpportunisticStartTLS:
 		return "OpportunisticStartTLS"
 	case MandatoryStartTLS:
@@ -184,7 +192,7 @@ func (policy *StartTLSPolicy) String() string {
 	case NoStartTLS:
 		return "NoStartTLS"
 	default:
-		return fmt.Sprintf("StartTLSPolicy:%v", *policy)
+		return fmt.Sprintf("StartTLSPolicy:%d", policy)
 	}
 }
 
@@ -205,18 +213,18 @@ func addr(host string, port int) string {
 
 // DialAndSend opens a connection to the SMTP server, sends the given emails and
 // closes the connection.
-func (d *Dialer) DialAndSend(m ...*Message) error {
-	s, err := d.Dial()
+func (d *Dialer) DialAndSend(ctx context.Context, m ...*Message) error {
+	s, err := d.Dial(ctx)
 	if err != nil {
 		return err
 	}
 	defer s.Close()
 
-	return Send(s, m...)
+	return Send(ctx, s, m...)
 }
 
 type smtpSender struct {
-	smtpClient
+	sc   smtpClient
 	conn net.Conn
 	d    *Dialer
 }
@@ -233,19 +241,19 @@ func (c *smtpSender) retryError(err error) bool {
 	return err == io.EOF
 }
 
-func (c *smtpSender) Send(from string, to []string, msg io.WriterTo) error {
+func (c *smtpSender) Send(ctx context.Context, from string, to []string, msg io.WriterTo) error {
 	if c.d.Timeout > 0 {
 		c.conn.SetDeadline(time.Now().Add(c.d.Timeout))
 	}
 
-	if err := c.Mail(from); err != nil {
+	if err := c.sc.Mail(from); err != nil {
 		if c.retryError(err) {
 			// This is probably due to a timeout, so reconnect and try again.
-			sc, derr := c.d.Dial()
+			sc, derr := c.d.Dial(ctx)
 			if derr == nil {
 				if s, ok := sc.(*smtpSender); ok {
 					*c = *s
-					return c.Send(from, to, msg)
+					return c.Send(ctx, from, to, msg)
 				}
 			}
 		}
@@ -254,14 +262,14 @@ func (c *smtpSender) Send(from string, to []string, msg io.WriterTo) error {
 	}
 
 	for _, addr := range to {
-		if err := c.Rcpt(addr); err != nil {
-			return err
+		if err := c.sc.Rcpt(addr); err != nil {
+			return fmt.Errorf("gomail: Send.to.Rcpt failed: %w", err)
 		}
 	}
 
-	w, err := c.Data()
+	w, err := c.sc.Data()
 	if err != nil {
-		return err
+		return fmt.Errorf("gomail: Send.Data failed: %w", err)
 	}
 
 	if _, err = msg.WriteTo(w); err != nil {
@@ -273,7 +281,7 @@ func (c *smtpSender) Send(from string, to []string, msg io.WriterTo) error {
 }
 
 func (c *smtpSender) Close() error {
-	return c.Quit()
+	return c.sc.Quit()
 }
 
 // Stubbed out for tests.

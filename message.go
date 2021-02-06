@@ -2,6 +2,7 @@ package mail
 
 import (
 	"bytes"
+	"fmt"
 	"io"
 	"os"
 	"path/filepath"
@@ -256,9 +257,9 @@ type PartSetting func(*part)
 // SetPartEncoding sets the encoding of the part added to the message. By
 // default, parts use the same encoding than the message.
 func SetPartEncoding(e Encoding) PartSetting {
-	return PartSetting(func(p *part) {
+	return func(p *part) {
 		p.encoding = e
-	})
+	}
 }
 
 type file struct {
@@ -333,11 +334,11 @@ func fileFromFilename(name string) *file {
 		CopyFunc: func(w io.Writer) error {
 			h, err := os.Open(name)
 			if err != nil {
-				return err
+				return fmt.Errorf("fileFromFilename failed to open: %w", err)
 			}
 			if _, err := io.Copy(w, h); err != nil {
 				h.Close()
-				return err
+				return fmt.Errorf("fileFromFilename failed to copy with error: %w", err)
 			}
 			return h.Close()
 		},
@@ -350,7 +351,7 @@ func fileFromReader(name string, r io.Reader) *file {
 		Header: make(map[string][]string),
 		CopyFunc: func(w io.Writer) error {
 			if _, err := io.Copy(w, r); err != nil {
-				return err
+				return fmt.Errorf("fileFromFilename failed to copy with error: %w", err)
 			}
 			return nil
 		},

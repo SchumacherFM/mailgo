@@ -44,6 +44,6 @@ func (a *loginAuth) Next(fromServer []byte, more bool) ([]byte, error) {
 	case bytes.Equal(fromServer, []byte("Password:")):
 		return []byte(a.password), nil
 	default:
-		return nil, fmt.Errorf("gomail: unexpected server challenge: %s", fromServer)
+		return nil, fmt.Errorf("gomail: unexpected server challenge: %q", fromServer)
 	}
 }

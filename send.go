@@ -1,6 +1,7 @@
 package mail
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"io"
@@ -11,7 +12,7 @@ import (
 //
 // Send sends an email to the given addresses.
 type Sender interface {
-	Send(from string, to []string, msg io.WriterTo) error
+	Send(ctx context.Context, from string, to []string, msg io.WriterTo) error
 }
 
 // SendCloser is the interface that groups the Send and Close methods.
@@ -25,37 +26,36 @@ type SendCloser interface {
 // The SendFunc type is an adapter to allow the use of ordinary functions as
 // email senders. If f is a function with the appropriate signature, SendFunc(f)
 // is a Sender object that calls f.
-type SendFunc func(from string, to []string, msg io.WriterTo) error
+type SendFunc func(ctx context.Context, from string, to []string, msg io.WriterTo) error
 
 // Send calls f(from, to, msg).
-func (f SendFunc) Send(from string, to []string, msg io.WriterTo) error {
-	return f(from, to, msg)
+func (f SendFunc) Send(ctx context.Context, from string, to []string, msg io.WriterTo) error {
+	return f(ctx, from, to, msg)
 }
 
 // Send sends emails using the given Sender.
-func Send(s Sender, msg ...*Message) error {
+func Send(ctx context.Context, s Sender, msg ...*Message) error {
 	for i, m := range msg {
-		if err := send(s, m); err != nil {
-			return &SendError{Cause: err, Index: uint(i)}
+		if err := send(ctx, s, m); err != nil {
+			return fmt.Errorf("gomail: could not send email, Index:%d: %w", i, err)
 		}
 	}
-
 	return nil
 }
 
-func send(s Sender, m *Message) error {
+func send(ctx context.Context, s Sender, m *Message) error {
 	from, err := m.getFrom()
 	if err != nil {
-		return err
+		return fmt.Errorf("gomail: getFrom failed: %w", err)
 	}
 
 	to, err := m.getRecipients()
 	if err != nil {
-		return err
+		return fmt.Errorf("gomail: getRecipients failed: %w", err)
 	}
 
-	if err := s.Send(from, to, m); err != nil {
-		return err
+	if err := s.Send(ctx, from, to, m); err != nil {
+		return fmt.Errorf("send.Send failed: %w", err)
 	}
 
 	return nil
@@ -87,7 +87,7 @@ func (m *Message) getRecipients() ([]string, error) {
 			for _, a := range addresses {
 				addr, err := parseAddress(a)
 				if err != nil {
-					return nil, err
+					return nil, fmt.Errorf("gomail: getRecipients.parseAddress failed: %w", err)
 				}
 				list = addAddress(list, addr)
 			}
@@ -110,7 +110,7 @@ func addAddress(list []string, addr string) []string {
 func parseAddress(field string) (string, error) {
 	addr, err := stdmail.ParseAddress(field)
 	if err != nil {
-		return "", fmt.Errorf("gomail: invalid address %q: %v", field, err)
+		return "", fmt.Errorf("gomail: invalid address %q: %w", field, err)
 	}
 	return addr.Address, nil
 }
