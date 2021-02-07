@@ -8,7 +8,7 @@ import (
 	"log"
 	"time"
 
-	mail "github.com/corestoreio/mailgo"
+	mail "github.com/SchumacherFM/mailgo"
 )
 
 func Example() {
